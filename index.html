@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChKSz长链接生成器</title>
+    <!-- 引入 Tailwind CSS 用于美化界面 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom font for better display */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Hide scrollbar for the textarea */
+        #longLinkOutput {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        #longLinkOutput::-webkit-scrollbar {
+            display: none;  /* Chrome, Safari, Opera */
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 hover:scale-105">
+        <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-8 tracking-tight">ChKSz长链接生成器</h1>
+
+        <div class="mb-8">
+            <label for="shortLinkInput" class="block text-gray-700 text-lg font-semibold mb-3">输入链接:</label>
+            <input type="text" id="shortLinkInput" placeholder="https://long.chksz.top"
+                   class="w-full p-4 border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400 focus:border-transparent text-gray-800 text-lg transition duration-200 ease-in-out">
+        </div>
+
+        <button id="generateButton"
+                class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-75 text-xl">
+            生成长链接
+        </button>
+
+        <!-- Loading indicator, shown during generation -->
+        <div id="loadingIndicator" class="hidden text-center text-blue-600 font-semibold mt-6">
+            正在生成中... 请稍候...
+        </div>
+
+        <!-- Error message display area -->
+        <div id="errorMessage" class="hidden text-center bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative mt-6" role="alert">
+            <strong class="font-bold">错误!</strong>
+            <span class="block sm:inline" id="errorText"></span>
+        </div>
+
+        <div class="mt-10 p-6 bg-gray-50 border border-gray-200 rounded-xl shadow-inner">
+            <label for="longLinkOutput" class="block text-gray-700 text-lg font-semibold mb-3">生成的长链接:</label>
+            <textarea id="longLinkOutput" rows="6" readonly
+                      class="w-full p-4 border-2 border-gray-300 rounded-xl bg-gray-100 text-gray-800 text-lg resize-none focus:outline-none focus:ring-2 focus:ring-gray-400"></textarea>
+            <button id="copyButton"
+                    class="mt-5 w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-bold py-3 px-6 rounded-xl shadow-md transition duration-300 ease-in-out transform hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-green-400 focus:ring-opacity-75 text-lg">
+                复制长链接
+            </button>
+            <!-- Copy success message -->
+            <div id="copyMessage" class="hidden text-center text-green-600 font-semibold mt-3">
+                已复制到剪贴板!
+            </div>
+        </div>
+
+        <!-- GitHub open source link as a star emoji -->
+        <div class="mt-8 text-center">
+            <a href="https://github.com/chksz/long_url_maker" target="_blank"
+               class="text-4xl text-gray-700 hover:text-gray-900 transition-colors duration-200 ease-in-out inline-block"
+               title="在 GitHub 上查看此项目">
+                <i class="fab fa-github"></i>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // ===================================================================
+        // Please modify your configuration here, no need to modify config.json file
+        // ===================================================================
+        const config = {
+            "domain": `https://${'i'.repeat(63)}.${'i'.repeat(62)}.qzz.io`,
+            "zero": "l", // Lowercase 'l' corresponds to 0
+            "one": "I"    // Uppercase 'I' corresponds to 1
+        };
+        // ===================================================================
+        // End of configuration
+        // ===================================================================
+
+        // Get DOM elements
+        const shortLinkInput = document.getElementById('shortLinkInput');
+        const generateButton = document.getElementById('generateButton');
+        const longLinkOutput = document.getElementById('longLinkOutput');
+        const copyButton = document.getElementById('copyButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const copyMessage = document.getElementById('copyMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+
+        /**
+         * Display error message
+         * @param {string} message - The error text to display
+         */
+        function showErrorMessage(message) {
+            errorText.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+
+        /**
+         * Hide error message
+         */
+        function hideErrorMessage() {
+            errorMessage.classList.add('hidden');
+            errorText.textContent = '';
+        }
+
+        /**
+         * Convert string to binary string (8-bit binary representation of ASCII code)
+         * @param {string} str - Input string
+         * @returns {string} - Binary string
+         */
+        function stringToBinary(str) {
+            return str.split('').map(char => {
+                // Get ASCII code of character and convert to 8-bit binary, pad with 0s if less than 8 bits
+                return char.charCodeAt(0).toString(2).padStart(8, '0');
+            }).join('');
+        }
+
+        /**
+         * Convert binary string (0s and 1s) to custom characters (l and I)
+         * @param {string} binaryStr - Binary string
+         * @param {string} zeroChar - Character corresponding to 0
+         * @param {string} oneChar - Character corresponding to 1
+         * @returns {string} - Converted character sequence
+         */
+        function binaryToCustomChars(binaryStr, zeroChar, oneChar) {
+            return binaryStr.split('').map(bit => {
+                return bit === '0' ? zeroChar : oneChar;
+            }).join('');
+        }
+
+        /**
+         * Function to generate long link
+         */
+        async function generateLongLink() {
+            // Ensure config object exists and contains necessary properties
+            if (!config || !config.domain || !config.zero || !config.one) {
+                showErrorMessage("Configuration information is incomplete or missing. Please check the 'config' object in the HTML file.");
+                return;
+            }
+
+            const shortLink = shortLinkInput.value.trim();
+            if (!shortLink) {
+                longLinkOutput.value = "请输入一个短链接！";
+                hideErrorMessage(); // Clear previous error messages
+                return;
+            }
+
+            // Show loading indicator
+            loadingIndicator.classList.remove('hidden');
+            longLinkOutput.value = ""; // Clear previous output
+            hideErrorMessage(); // Clear previous error messages
+
+            // Simulate asynchronous operation to give user a loading feel
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            try {
+                // 1. Convert short link to binary string
+                let binaryRepresentation = stringToBinary(shortLink);
+
+                // 2. To generate a very long link, repeat the binary string multiple times
+                // The repeat count can be adjusted to control the final link length
+                const repeatCount = 50; // Repeat 50 times to generate a very long path
+                let longBinaryString = binaryRepresentation.repeat(repeatCount);
+
+                // 3. Convert the super long binary string to custom characters (l and I)
+                let encodedPath = binaryToCustomChars(longBinaryString, config.zero, config.one);
+
+                // 4. To simulate your example, we split the path into multiple segments, joined by '/'
+                const segmentLength = 100; // Length of each segment, can be adjusted
+                let pathSegments = [];
+                for (let i = 0; i < encodedPath.length; i += segmentLength) {
+                    pathSegments.push(encodedPath.substring(i, i + segmentLength));
+                }
+                const finalPath = pathSegments.join('/');
+
+                // 5. Combine to form the final long link
+                const longLink = `${config.domain}/${finalPath}`;
+                longLinkOutput.value = longLink;
+
+            } catch (error) {
+                showErrorMessage(`生成链接时发生错误: ${error.message}`);
+                console.error("Error generating long link:", error);
+            } finally {
+                // Hide loading indicator
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Copy long link to clipboard
+         */
+        function copyLongLink() {
+            if (!longLinkOutput.value) {
+                showErrorMessage("没有可复制的链接。请先生成链接。");
+                return;
+            }
+            longLinkOutput.select(); // Select content of the textarea
+            // Try to use modern Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(longLinkOutput.value)
+                    .then(() => {
+                        copyMessage.classList.remove('hidden');
+                        setTimeout(() => {
+                            copyMessage.classList.add('hidden');
+                        }, 2000); // Hide message after 2 seconds
+                        hideErrorMessage(); // Hide error on successful copy
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy text using Clipboard API:', err);
+                        // Fallback to old document.execCommand
+                        try {
+                            document.execCommand('copy');
+                            copyMessage.classList.remove('hidden');
+                            setTimeout(() => {
+                                copyMessage.classList.add('hidden');
+                            }, 2000); // Hide message after 2 seconds
+                            hideErrorMessage(); // Hide error on successful copy
+                        } catch (fallbackErr) {
+                            showErrorMessage("复制失败: 您的浏览器不支持自动复制。请手动复制。");
+                            console.error('Fallback copy failed:', fallbackErr);
+                        }
+                    });
+            } else {
+                // Old document.execCommand method
+                try {
+                    document.execCommand('copy');
+                    copyMessage.classList.remove('hidden');
+                    setTimeout(() => {
+                        copyMessage.classList.add('hidden');
+                    }, 2000); // Hide message after 2 seconds
+                    hideErrorMessage(); // Hide error on successful copy
+                } catch (err) {
+                    showErrorMessage("复制失败: 您的浏览器不支持自动复制。请手动复制。");
+                    console.error('Copy command failed:', err);
+                }
+            }
+        }
+
+        // Bind event listeners
+        generateButton.addEventListener('click', generateLongLink);
+        copyButton.addEventListener('click', copyLongLink);
+
+        // On page load, generate an example link
+        window.onload = () => {
+            shortLinkInput.value = "https://long.chksz.top"; // Example short link
+            generateLongLink();
+        };
+    </script>
+</body>
+</html>
