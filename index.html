@@ -21,15 +21,56 @@
         #longLinkOutput::-webkit-scrollbar {
             display: none;  /* Chrome, Safari, Opera */
         }
+        /* Style for the custom alert/message box */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            text-align: center;
+            max-width: 90%;
+            width: 400px;
+            display: none; /* Hidden by default */
+        }
+        .message-box.show {
+            display: block;
+        }
+        .message-box h3 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        .message-box p {
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 1.5rem;
+        }
+        .message-box button {
+            background-color: #667eea;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .message-box button:hover {
+            background-color: #764ba2;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center min-h-screen p-4">
     <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 hover:scale-105">
-        <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-8 tracking-tight">ChKSz长链接生成器</h1>
+        <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-8 tracking-tight">ChKSz纯前端长链接生成器</h1>
 
         <div class="mb-8">
             <label for="shortLinkInput" class="block text-gray-700 text-lg font-semibold mb-3">输入链接:</label>
-            <input type="text" id="shortLinkInput" placeholder="https://long.chksz.top"
+            <input type="text" id="shortLinkInput" placeholder="https://example.com"
                    class="w-full p-4 border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400 focus:border-transparent text-gray-800 text-lg transition duration-200 ease-in-out">
         </div>
 
@@ -73,20 +114,30 @@
         </div>
     </div>
 
+    <!-- Custom Message Box for errors/info -->
+    <div id="messageBox" class="message-box hidden">
+        <h3 id="messageBoxTitle"></h3>
+        <p id="messageBoxContent"></p>
+        <button id="messageBoxCloseButton">确定</button>
+    </div>
+
     <script>
         // ===================================================================
-        // Please modify your configuration here, no need to modify config.json file
+        // 请在此处修改您的配置，无需修改 config.json 文件
         // ===================================================================
         const config = {
-            "domain": `https://${'i'.repeat(63)}.${'i'.repeat(62)}.qzz.io`,
-            "zero": "l", // Lowercase 'l' corresponds to 0
-            "one": "I"    // Uppercase 'I' corresponds to 1
+            // 重要：此域名必须是您实际部署此HTML文件的域名！
+            // 例如，如果您的文件部署在 https://yourdomain.com/index.html，则 domain 应为 "https://yourdomain.com"
+            // 如果您在本地通过 live server 运行，则可能是 "http://127.0.0.1:5500" 或 "http://localhost:8000"
+            "domain": window.location.origin, // 自动获取当前页面的协议和域名
+            "zero": "l", // 小写 'l' 对应 0
+            "one": "I"    // 大写 'I' 对应 1
         };
         // ===================================================================
-        // End of configuration
+        // 配置结束
         // ===================================================================
 
-        // Get DOM elements
+        // 获取 DOM 元素
         const shortLinkInput = document.getElementById('shortLinkInput');
         const generateButton = document.getElementById('generateButton');
         const longLinkOutput = document.getElementById('longLinkOutput');
@@ -95,10 +146,14 @@
         const copyMessage = document.getElementById('copyMessage');
         const errorMessage = document.getElementById('errorMessage');
         const errorText = document.getElementById('errorText');
+        const messageBox = document.getElementById('messageBox');
+        const messageBoxTitle = document.getElementById('messageBoxTitle');
+        const messageBoxContent = document.getElementById('messageBoxContent');
+        const messageBoxCloseButton = document.getElementById('messageBoxCloseButton');
 
         /**
-         * Display error message
-         * @param {string} message - The error text to display
+         * 显示错误信息（在页面顶部）
+         * @param {string} message - 要显示的错误文本
          */
         function showErrorMessage(message) {
             errorText.textContent = message;
@@ -106,7 +161,7 @@
         }
 
         /**
-         * Hide error message
+         * 隐藏错误信息（在页面顶部）
          */
         function hideErrorMessage() {
             errorMessage.classList.add('hidden');
@@ -114,76 +169,159 @@
         }
 
         /**
-         * Convert string to binary string (8-bit binary representation of ASCII code)
-         * @param {string} str - Input string
-         * @returns {string} - Binary string
+         * 显示自定义消息框（替代 alert）
+         * @param {string} title - 消息框标题
+         * @param {string} content - 消息框内容
+         * @param {function} onClose - 关闭时执行的回调函数 (可选)
          */
+        function showMessageBox(title, content, onClose = null) {
+            messageBoxTitle.textContent = title;
+            messageBoxContent.textContent = content;
+            messageBox.classList.add('show');
+            messageBoxCloseButton.onclick = () => {
+                messageBox.classList.remove('show');
+                if (onClose) onClose();
+            };
+        }
+
+        // 字符串转二进制 (8位ASCII码)
         function stringToBinary(str) {
             return str.split('').map(char => {
-                // Get ASCII code of character and convert to 8-bit binary, pad with 0s if less than 8 bits
                 return char.charCodeAt(0).toString(2).padStart(8, '0');
             }).join('');
         }
 
-        /**
-         * Convert binary string (0s and 1s) to custom characters (l and I)
-         * @param {string} binaryStr - Binary string
-         * @param {string} zeroChar - Character corresponding to 0
-         * @param {string} oneChar - Character corresponding to 1
-         * @returns {string} - Converted character sequence
-         */
+        // 二进制转字符串
+        function binaryToString(binary) {
+            const chunks = binary.match(/.{8}/g) || [];
+            return chunks.map(chunk => {
+                return String.fromCharCode(parseInt(chunk, 2));
+            }).join('');
+        }
+
+        // 二进制转自定义字符 (l 和 I)
         function binaryToCustomChars(binaryStr, zeroChar, oneChar) {
             return binaryStr.split('').map(bit => {
                 return bit === '0' ? zeroChar : oneChar;
             }).join('');
         }
 
+        // 自定义字符 (l 和 I) 转二进制
+        function customCharsToBinary(customCharString, zeroChar, oneChar) {
+            return customCharString.split('').map(char => char === zeroChar ? '0' : '1').join('');
+        }
+
         /**
-         * Function to generate long link
+         * 编码URL和时间戳信息为自定义字符编码
+         * @param {string} url - 目标URL
+         * @returns {{encoded: string, data: object}} - 编码后的字符串和原始数据对象
+         */
+        function encodeUrlWithTimestamp(url) {
+            const now = Date.now();
+            
+            // 将数据打包（永久链接，无过期时间）
+            const data = {
+                url: url,
+                created: now,
+                expires: null, // 永久链接
+                permanent: true
+            };
+            
+            const jsonData = JSON.stringify(data);
+            
+            // 转换为二进制
+            const binary = stringToBinary(jsonData);
+            
+            // 转换为 i/I 编码 (使用配置中的 zero 和 one 字符)
+            const encoded = binaryToCustomChars(binary, config.zero, config.one);
+            
+            return {
+                encoded: encoded,
+                data: data
+            };
+        }
+
+        /**
+         * 解码自定义字符字符串为原始数据对象
+         * @param {string} customCharString - 自定义字符编码字符串
+         * @returns {object|null} - 解码后的数据对象，如果失败则为 null
+         */
+        function decodeFromCustomChars(customCharString) {
+            try {
+                // 转换为二进制 (使用配置中的 zero 和 one 字符)
+                const binary = customCharsToBinary(customCharString, config.zero, config.one);
+                
+                // 转换为字符串
+                const jsonString = binaryToString(binary);
+                
+                // 解析JSON
+                const data = JSON.parse(jsonString);
+                
+                return data;
+            } catch (error) {
+                console.error('解码失败:', error);
+                return null;
+            }
+        }
+
+        /**
+         * 将长编码字符串分割成多段路径
+         * @param {string} encoded - 长编码字符串
+         * @returns {string} - 分段后的路径字符串，用 '/' 连接
+         */
+        function generateSegmentedPath(encoded) {
+            const segments = [];
+            const maxSegmentLength = 100; // URL段最大长度，可调整
+            
+            for (let i = 0; i < encoded.length; i += maxSegmentLength) {
+                segments.push(encoded.substring(i, i + maxSegmentLength));
+            }
+            
+            return segments.join('/');
+        }
+
+        /**
+         * 从分段路径中提取完整的编码字符串
+         * @param {string} path - URL路径部分
+         * @returns {string} - 提取出的编码字符串
+         */
+        function extractEncodedFromPath(path) {
+            return path.replace(/\//g, ''); // 移除所有 '/'
+        }
+
+        /**
+         * 生成长链接的主函数
          */
         async function generateLongLink() {
-            // Ensure config object exists and contains necessary properties
+            // 确保配置对象存在并包含必要属性
             if (!config || !config.domain || !config.zero || !config.one) {
-                showErrorMessage("Configuration information is incomplete or missing. Please check the 'config' object in the HTML file.");
+                showErrorMessage("配置信息不完整或缺失。请检查 HTML 文件中的 'config' 对象。");
                 return;
             }
 
             const shortLink = shortLinkInput.value.trim();
             if (!shortLink) {
                 longLinkOutput.value = "请输入一个短链接！";
-                hideErrorMessage(); // Clear previous error messages
+                hideErrorMessage(); // 清除之前的错误信息
                 return;
             }
 
-            // Show loading indicator
+            // 显示加载指示器
             loadingIndicator.classList.remove('hidden');
-            longLinkOutput.value = ""; // Clear previous output
-            hideErrorMessage(); // Clear previous error messages
+            longLinkOutput.value = ""; // 清除之前的输出
+            hideErrorMessage(); // 清除之前的错误信息
 
-            // Simulate asynchronous operation to give user a loading feel
+            // 模拟异步操作以提供加载感
             await new Promise(resolve => setTimeout(resolve, 300));
 
             try {
-                // 1. Convert short link to binary string
-                let binaryRepresentation = stringToBinary(shortLink);
+                // 编码短链接和元数据
+                const { encoded, data } = encodeUrlWithTimestamp(shortLink);
 
-                // 2. To generate a very long link, repeat the binary string multiple times
-                // The repeat count can be adjusted to control the final link length
-                const repeatCount = 50; // Repeat 50 times to generate a very long path
-                let longBinaryString = binaryRepresentation.repeat(repeatCount);
+                // 生成分段路径
+                const finalPath = generateSegmentedPath(encoded);
 
-                // 3. Convert the super long binary string to custom characters (l and I)
-                let encodedPath = binaryToCustomChars(longBinaryString, config.zero, config.one);
-
-                // 4. To simulate your example, we split the path into multiple segments, joined by '/'
-                const segmentLength = 100; // Length of each segment, can be adjusted
-                let pathSegments = [];
-                for (let i = 0; i < encodedPath.length; i += segmentLength) {
-                    pathSegments.push(encodedPath.substring(i, i + segmentLength));
-                }
-                const finalPath = pathSegments.join('/');
-
-                // 5. Combine to form the final long link
+                // 结合域名和路径形成最终长链接
                 const longLink = `${config.domain}/${finalPath}`;
                 longLinkOutput.value = longLink;
 
@@ -191,69 +329,110 @@
                 showErrorMessage(`生成链接时发生错误: ${error.message}`);
                 console.error("Error generating long link:", error);
             } finally {
-                // Hide loading indicator
+                // 隐藏加载指示器
                 loadingIndicator.classList.add('hidden');
             }
         }
 
         /**
-         * Copy long link to clipboard
+         * 复制长链接到剪贴板
          */
         function copyLongLink() {
             if (!longLinkOutput.value) {
                 showErrorMessage("没有可复制的链接。请先生成链接。");
                 return;
             }
-            longLinkOutput.select(); // Select content of the textarea
-            // Try to use modern Clipboard API
+            longLinkOutput.select(); // 选中 textarea 中的内容
+            // 尝试使用现代 Clipboard API
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(longLinkOutput.value)
                     .then(() => {
                         copyMessage.classList.remove('hidden');
                         setTimeout(() => {
                             copyMessage.classList.add('hidden');
-                        }, 2000); // Hide message after 2 seconds
-                        hideErrorMessage(); // Hide error on successful copy
+                        }, 2000); // 2秒后隐藏消息
+                        hideErrorMessage(); // 复制成功时隐藏错误
                     })
                     .catch(err => {
-                        console.error('Failed to copy text using Clipboard API:', err);
-                        // Fallback to old document.execCommand
+                        console.error('使用 Clipboard API 复制文本失败:', err);
+                        // 回退到旧的 document.execCommand
                         try {
                             document.execCommand('copy');
                             copyMessage.classList.remove('hidden');
                             setTimeout(() => {
                                 copyMessage.classList.add('hidden');
-                            }, 2000); // Hide message after 2 seconds
-                            hideErrorMessage(); // Hide error on successful copy
+                            }, 2000); // 2秒后隐藏消息
+                            hideErrorMessage(); // 复制成功时隐藏错误
                         } catch (fallbackErr) {
                             showErrorMessage("复制失败: 您的浏览器不支持自动复制。请手动复制。");
-                            console.error('Fallback copy failed:', fallbackErr);
+                            console.error('回退复制失败:', fallbackErr);
                         }
                     });
             } else {
-                // Old document.execCommand method
+                // 旧的 document.execCommand 方法
                 try {
                     document.execCommand('copy');
                     copyMessage.classList.remove('hidden');
                     setTimeout(() => {
                         copyMessage.classList.add('hidden');
-                    }, 2000); // Hide message after 2 seconds
-                    hideErrorMessage(); // Hide error on successful copy
+                    }, 2000); // 2秒后隐藏消息
+                    hideErrorMessage(); // 复制成功时隐藏错误
                 } catch (err) {
                     showErrorMessage("复制失败: 您的浏览器不支持自动复制。请手动复制。");
-                    console.error('Copy command failed:', err);
+                    console.error('复制命令失败:', err);
                 }
             }
         }
 
-        // Bind event listeners
+        // 页面加载时自动解码和跳转功能
+        window.addEventListener('load', function() {
+            const currentUrl = window.location.href;
+            const urlPath = window.location.pathname;
+            
+            // 如果当前页面URL包含编码路径，自动解码并跳转
+            // 检查 urlPath 是否存在，不是根路径，且长度大于某个阈值（避免解码无意义的短路径）
+            if (urlPath && urlPath !== '/' && urlPath.length > 5) { // 调整阈值以适应你的编码最短长度
+                try {
+                    // 提取路径部分
+                    const path = urlPath.substring(1); // 移除开头的 /
+                    
+                    // 提取编码
+                    const encoded = extractEncodedFromPath(path);
+                    
+                    // 解码
+                    const decoded = decodeFromCustomChars(encoded);
+                    
+                    if (decoded && decoded.url) {
+                        // 永久链接，直接跳转
+                        window.location.href = decoded.url;
+                        return; // 阻止后续页面内容的加载
+                    } else {
+                        // 解码失败但没有抛出错误，可能是格式不正确
+                        showMessageBox('链接无效', '抱歉，您访问的链接无效或已损坏。', () => {
+                            // 可选：跳转回生成器主页
+                            // window.location.href = '/'; 
+                        });
+                    }
+                } catch (error) {
+                    // 解码失败，显示错误页面或消息
+                    console.error("URL解码失败:", error);
+                    showMessageBox('链接无效', '抱歉，您访问的链接无效或已损坏。', () => {
+                        // 可选：跳转回生成器主页
+                        // window.location.href = '/'; 
+                    });
+                }
+            }
+            // 如果没有路径或路径不符合解码条件，则正常显示生成器页面
+        });
+
+        // 绑定事件监听器
         generateButton.addEventListener('click', generateLongLink);
         copyButton.addEventListener('click', copyLongLink);
 
-        // On page load, generate an example link
+        // 页面加载时，生成一个示例链接
         window.onload = () => {
-            shortLinkInput.value = "https://long.chksz.top"; // Example short link
-            generateLongLink();
+            // shortLinkInput.value = "https://long.chksz.top"; // 示例短链接
+            // generateLongLink(); // 初始不自动生成，等待用户输入
         };
     </script>
 </body>
