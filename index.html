@@ -62,11 +62,24 @@
         .message-box button:hover {
             background-color: #764ba2;
         }
+        /* Specific style for redirection message box */
+        #redirectMessageBox {
+            background: linear-gradient(135deg, #a7f3d0 0%, #6ee7b7 100%); /* Greenish gradient */
+            color: #065f46;
+            border: 2px solid #34d399;
+        }
+        #redirectMessageBox h3 {
+            color: #065f46;
+        }
+        #redirectMessageBox p {
+            color: #10b981;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center min-h-screen p-4">
-    <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 hover:scale-105">
-        <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-8 tracking-tight">ChKSz纯前端长链接生成器</h1>
+    <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 hover:scale-101">
+        <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-2 tracking-tight">好玩的长链接生成器</h1>
+        <p class="text-center text-gray-600 text-lg mb-8">Made By <a href="https://github.com/ChKSz" target="_blank" class="text-blue-600 hover:text-blue-800 font-semibold transition-colors duration-200">ChKSz</a></p>
 
         <div class="mb-8">
             <label for="shortLinkInput" class="block text-gray-700 text-lg font-semibold mb-3">输入链接:</label>
@@ -93,7 +106,7 @@
         <div class="mt-10 p-6 bg-gray-50 border border-gray-200 rounded-xl shadow-inner">
             <label for="longLinkOutput" class="block text-gray-700 text-lg font-semibold mb-3">生成的长链接:</label>
             <textarea id="longLinkOutput" rows="6" readonly
-                      class="w-full p-4 border-2 border-gray-300 rounded-xl bg-gray-100 text-gray-800 text-lg resize-none focus:outline-none focus:ring-2 focus:ring-gray-400"></textarea>
+                      class="w-full p-4 border-2 border-gray-300 rounded-xl bg-gray-100 text-gray-800 text-lg resize-none focus:outline-none focus:ring-2 focus:ring-gray-400">等待输入...</textarea>
             <button id="copyButton"
                     class="mt-5 w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-bold py-3 px-6 rounded-xl shadow-md transition duration-300 ease-in-out transform hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-green-400 focus:ring-opacity-75 text-lg">
                 复制长链接
@@ -114,11 +127,17 @@
         </div>
     </div>
 
-    <!-- Custom Message Box for errors/info -->
+    <!-- Custom Message Box for general errors/info -->
     <div id="messageBox" class="message-box hidden">
         <h3 id="messageBoxTitle"></h3>
         <p id="messageBoxContent"></p>
         <button id="messageBoxCloseButton">确定</button>
+    </div>
+
+    <!-- Redirection Message Box -->
+    <div id="redirectMessageBox" class="message-box hidden">
+        <h3 id="redirectMessageBoxTitle"></h3>
+        <p id="redirectMessageBoxContent"></p>
     </div>
 
     <script>
@@ -150,6 +169,9 @@
         const messageBoxTitle = document.getElementById('messageBoxTitle');
         const messageBoxContent = document.getElementById('messageBoxContent');
         const messageBoxCloseButton = document.getElementById('messageBoxCloseButton');
+        const redirectMessageBox = document.getElementById('redirectMessageBox');
+        const redirectMessageBoxTitle = document.getElementById('redirectMessageBoxTitle');
+        const redirectMessageBoxContent = document.getElementById('redirectMessageBoxContent');
 
         /**
          * 显示错误信息（在页面顶部）
@@ -182,6 +204,24 @@
                 messageBox.classList.remove('show');
                 if (onClose) onClose();
             };
+        }
+
+        /**
+         * 显示重定向提示框
+         * @param {string} title - 提示框标题
+         * @param {string} content - 提示框内容
+         */
+        function showRedirectMessage(title, content) {
+            redirectMessageBoxTitle.textContent = title;
+            redirectMessageBoxContent.textContent = content;
+            redirectMessageBox.classList.add('show');
+        }
+
+        /**
+         * 隐藏重定向提示框
+         */
+        function hideRedirectMessage() {
+            redirectMessageBox.classList.remove('show');
         }
 
         // 字符串转二进制 (8位ASCII码)
@@ -301,7 +341,7 @@
 
             const shortLink = shortLinkInput.value.trim();
             if (!shortLink) {
-                longLinkOutput.value = "请输入一个短链接！";
+                longLinkOutput.value = "请输入一个短链接！"; // 如果输入为空，显示此提示
                 hideErrorMessage(); // 清除之前的错误信息
                 return;
             }
@@ -338,11 +378,11 @@
          * 复制长链接到剪贴板
          */
         function copyLongLink() {
-            if (!longLinkOutput.value) {
+            if (!longLinkOutput.value || longLinkOutput.value === "等待输入...") {
                 showErrorMessage("没有可复制的链接。请先生成链接。");
                 return;
             }
-            longLinkOutput.select(); // 选中 textarea 中的内容
+            // longLinkOutput.select(); // 移除此行，不再自动全选
             // 尝试使用现代 Clipboard API
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(longLinkOutput.value)
@@ -357,7 +397,12 @@
                         console.error('使用 Clipboard API 复制文本失败:', err);
                         // 回退到旧的 document.execCommand
                         try {
+                            const textArea = document.createElement('textarea');
+                            textArea.value = longLinkOutput.value;
+                            document.body.appendChild(textArea);
+                            textArea.select(); // 仍然需要选中才能使用 execCommand
                             document.execCommand('copy');
+                            document.body.removeChild(textArea);
                             copyMessage.classList.remove('hidden');
                             setTimeout(() => {
                                 copyMessage.classList.add('hidden');
@@ -371,7 +416,12 @@
             } else {
                 // 旧的 document.execCommand 方法
                 try {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = longLinkOutput.value;
+                    document.body.appendChild(textArea);
+                    textArea.select(); // 仍然需要选中才能使用 execCommand
                     document.execCommand('copy');
+                    document.body.removeChild(textArea);
                     copyMessage.classList.remove('hidden');
                     setTimeout(() => {
                         copyMessage.classList.add('hidden');
@@ -403,36 +453,39 @@
                     const decoded = decodeFromCustomChars(encoded);
                     
                     if (decoded && decoded.url) {
-                        // 永久链接，直接跳转
-                        window.location.href = decoded.url;
-                        return; // 阻止后续页面内容的加载
+                        // 显示重定向提示框
+                        showRedirectMessage('正在跳转...', `即将为您跳转到: ${decoded.url}`);
+                        
+                        // 永久链接，延迟跳转
+                        setTimeout(() => {
+                            window.location.href = decoded.url;
+                        }, 1500); // 停留1.5秒后自动跳转
+                        return; // 阻止后续页面内容的加载和生成器界面的显示
                     } else {
                         // 解码失败但没有抛出错误，可能是格式不正确
-                        showMessageBox('链接无效', '抱歉，您访问的链接无效或已损坏。', () => {
-                            // 可选：跳转回生成器主页
-                            // window.location.href = '/'; 
-                        });
+                        showMessageBox('链接无效', '抱歉，您访问的链接无效或已损坏。');
                     }
                 } catch (error) {
                     // 解码失败，显示错误页面或消息
                     console.error("URL解码失败:", error);
-                    showMessageBox('链接无效', '抱歉，您访问的链接无效或已损坏。', () => {
-                        // 可选：跳转回生成器主页
-                        // window.location.href = '/'; 
-                    });
+                    showMessageBox('链接无效', '抱歉，您访问的链接无效或已损坏。');
                 }
+                // 如果尝试重定向但失败（显示了消息框），则不显示生成器表单
+                return;
             }
+
             // 如果没有路径或路径不符合解码条件，则正常显示生成器页面
+            // shortLinkInput.value = "https://long.chksz.top"; // 示例短链接，可以取消注释
+            // generateLongLink(); // 初始不自动生成，等待用户输入
         });
 
         // 绑定事件监听器
         generateButton.addEventListener('click', generateLongLink);
         copyButton.addEventListener('click', copyLongLink);
 
-        // 页面加载时，生成一个示例链接
+        // 页面加载时，设置输出框的初始文本
         window.onload = () => {
-            // shortLinkInput.value = "https://long.chksz.top"; // 示例短链接
-            // generateLongLink(); // 初始不自动生成，等待用户输入
+            longLinkOutput.value = "等待输入...";
         };
     </script>
 </body>
