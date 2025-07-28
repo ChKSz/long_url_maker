@@ -1,9 +1,10 @@
 # Long Long - 好玩的长链接生成器
 
-![GitHub stars](https://img.shields.io/github/stars/chksz/long_url_maker?style=for-the-badge) 
+![GitHub stars](https://img.shields.io/github/stars/chksz/long_url_maker?style=for-the-badge)
 ![GitHub forks](https://img.shields.io/github/forks/chksz/long_url_maker?style=for-the-badge)
 
-一个将短链接转换为超长、有趣链接的工具，支持自动跳转功能。纯前端实现，无需服务器即可免费部署到CloudFlare Pages上！
+一个将短链接转换为超长、有趣链接的工具，支持自动跳转功能。
+纯前端实现，无需服务器即可免费部署到CloudFlare Pages上！
 
 ## 🌟 功能特性
 
